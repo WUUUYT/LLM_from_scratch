@@ -4,6 +4,8 @@
 
 Transformer/
 *.pdf
+*.pt
+
 
 ###### Assignment 1 ########
 assignment1-basics/outputs
@@ -12,7 +14,7 @@ assignment1-basics/history
 assignment1-basics/tests
 assignment1-basics/README.md
 assignment1-basics/make_submission.sh
-
+assignment1-basics/wandb
 ### C++ ###
 # Prerequisites
 *.d
@@ -95,7 +97,7 @@ replay_pid*
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
 
 # Thumbnails
 ._*
