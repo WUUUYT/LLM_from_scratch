@@ -263,6 +263,22 @@ def encode_owt():
         num_procs=1,
     )
 
+def encode_owt_valid():
+    # OpenWebText
+    print("\n=== Encoding OpenWebText ===")
+    owt_tok = Tokenizer.from_files(
+        "outputs/owt_vocab.pkl",
+        "outputs/owt_merges.pkl",
+        special_tokens=["<|endoftext|>"],
+    )
+    encode_corpus_to_uint16(
+        owt_tok,
+        "data/owt_valid.txt",
+        "data/owt_valid_ids.uint16",
+        chunk_bytes=256_000_000,
+        num_procs=1,
+    )
+
 
 if __name__ == "__main__":
-    encode_tinystories_test()
+    encode_owt_valid()
