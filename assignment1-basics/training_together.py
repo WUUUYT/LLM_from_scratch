@@ -126,8 +126,6 @@ def main():
         model = torch.compile(model)
     elif args.device == "mps":
         model = torch.compile(model, backend="aot_eager")
-    elif args.device == "cuda":
-        model = torch.compile(model)
     # -- intialize optimizer ------------------------------
     decay_params = [p for p in model.parameters() if p.dim() >= 2]
     no_decay_params = [p for p in model.parameters() if p.dim() < 2]
