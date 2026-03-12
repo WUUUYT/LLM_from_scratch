@@ -31,6 +31,7 @@ class TransformerLM(nn.Module):
         )
         self.norm = RMSNorm(d_model)
         self.lm_head = Linear(d_model, vocab_size)
+        self.lm_head.weight = self.embedding.weight
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         batch, seq_len = token_ids.shape
