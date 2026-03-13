@@ -1,24 +1,13 @@
-string = """
-low low low low low <|endoftext|>
-lower lower widest widest widest <|endoftext|>
-newest newest newest newest newest newest
-"""
 import heapq
 import logging
 import multiprocessing as mp
 import os
 from collections import Counter, defaultdict
-from functools import partial
-from multiprocessing import Pool
-from queue import Empty
 from typing import BinaryIO
 
-import psutil
 import regex as re
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
@@ -76,9 +65,7 @@ def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
 ######## Heap ########
 # counts might get outdated after merge. Thus, we need to check if the pop item counts eqauls to pair_counts[word]
 class HeapItem:
-    def __init__(
-        self, neg_freq: int, pair_bytes: tuple[bytes, bytes], pair: tuple[int, int]
-    ):
+    def __init__(self, neg_freq: int, pair_bytes: tuple[bytes, bytes], pair: tuple[int, int]):
         self.neg_freq = neg_freq
         self.pair_bytes = pair_bytes
         self.pair = pair
@@ -166,9 +153,7 @@ def merge_pairs_with_heap_index(
     return word_counts, pair_counts, h, pair_to_words
 
 
-def _get_new_word(
-    word: tuple[int, ...], pair: tuple[int, int], next_id: int
-) -> tuple[int, ...]:
+def _get_new_word(word: tuple[int, ...], pair: tuple[int, int], next_id: int) -> tuple[int, ...]:
     new_word = []
     i = 0
     while i < len(word):
@@ -184,9 +169,7 @@ def _get_new_word(
 ######################
 
 
-def _process_chunk(
-    input_path: str, start: int, end: int, special_tokens: list[str], queue
-):
+def _process_chunk(input_path: str, start: int, end: int, special_tokens: list[str], queue):
     local_counts = Counter()
     try:
         with open(input_path, "rb") as f:
@@ -245,9 +228,7 @@ def _process_chunk_streaming(
                 del text, words, chunk_bytes
 
                 if processed_bytes % (50 * 1024 * 1024) == 0:
-                    logging.info(
-                        f"Chunk {start}-{end}: processed {processed_bytes // (1024*1024)}MB"
-                    )
+                    logging.info(f"Chunk {start}-{end}: processed {processed_bytes // (1024 * 1024)}MB")
 
         logging.info(f"Chunk {start}-{end} done, unique words={len(local_counts)}")
         queue.put(local_counts)
@@ -314,9 +295,7 @@ def train_bpe(
         ctx = mp
 
     logging.info(f"Using {num_procs} processes")
-    split_token = (special_tokens[0] if special_tokens else " <|endoftext|>").encode(
-        "utf-8"
-    )
+    split_token = (special_tokens[0] if special_tokens else " <|endoftext|>").encode("utf-8")
     with open(input_path, "rb") as f:
         boundaries = find_chunk_boundaries(f, num_procs, split_token)
     logging.info(f"Chunk boundaries: {boundaries}")
@@ -328,13 +307,9 @@ def train_bpe(
     word_counts = Counter()
 
     with ctx.Pool(processes=num_procs) as pool:
-        for idx, partial_counter in enumerate(
-            pool.imap_unordered(_process_chunk_worker, tasks, chunksize=1)
-        ):
+        for idx, partial_counter in enumerate(pool.imap_unordered(_process_chunk_worker, tasks, chunksize=1)):
             word_counts.update(partial_counter)
-            logging.info(
-                f"Merged result {idx + 1}/{len(tasks)}, total unique words: {len(word_counts)}"
-            )
+            logging.info(f"Merged result {idx + 1}/{len(tasks)}, total unique words: {len(word_counts)}")
             del partial_counter
             if (idx + 1) % 5 == 0:
                 import gc
@@ -411,9 +386,7 @@ if __name__ == "__main__":
     print("Done.")
     print(f"Training took {end - start:.2f} seconds")
     longest = max(vocab.values(), key=len)
-    print(
-        f"Longest token: {longest.decode('utf-8', errors='replace')} ({len(longest)} bytes)"
-    )
+    print(f"Longest token: {longest.decode('utf-8', errors='replace')} ({len(longest)} bytes)")
 
     with open(output_path_vocab, "wb") as f:
         pickle.dump(vocab, f)
