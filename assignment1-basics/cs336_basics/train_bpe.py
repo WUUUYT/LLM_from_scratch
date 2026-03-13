@@ -53,17 +53,7 @@ def find_chunk_boundaries(
                 chunk_boundaries[bi] = initial_position + found_at
                 break
 
-            for offset in range(len(mini_chunk) - 1, -1, -1):
-                try:
-                    mini_chunk[: offset + 1].decode("utf-8")
-                    chunk_boundaries[bi] = initial_position + offset + 1
-                    break
-                except UnicodeDecodeError:
-                    continue
-            else:
-                initial_position += mini_chunk_size
-                continue
-            break
+            initial_position += len(mini_chunk)
 
     return sorted(set(chunk_boundaries))
 
