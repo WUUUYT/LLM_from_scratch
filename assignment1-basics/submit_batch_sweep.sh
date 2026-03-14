@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=12:00:00
+#SBATCH --time=8:00:00
 
 nvidia-smi
 
@@ -20,8 +20,9 @@ TOTAL_TOKENS=327680000
 # batch_size 从 1 到 GPU 显存上限
 # max_iters = TOTAL_TOKENS / (batch_size × 256)
 # batch_size = 1 8 32 64 128 256 512
-for BATCH_SIZE in 16 32 64 128 256 512; do
+for BATCH_SIZE in 32 64 128 256 512; do
     MAX_ITERS=$(python -c "print(int($TOTAL_TOKENS / ($BATCH_SIZE * 256)))")
+    echo "DEBUG: MAX_ITERS='$MAX_ITERS', exit_code=$?"
     WARMUP_ITERS=$(python -c "print(int($MAX_ITERS * 0.04))")
     echo "=============================="
     echo "Running with batch_size=$BATCH_SIZE, max_iters=$MAX_ITERS"

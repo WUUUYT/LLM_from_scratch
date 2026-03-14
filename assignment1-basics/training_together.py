@@ -53,6 +53,7 @@ def get_args():
     parser.add_argument("--num_layers", type=int, default=6)
     parser.add_argument("--d_ff", type=int, default=2048)
     parser.add_argument("--dropout", type=float, default=0.1)
+    parser.add_argument("--weight_tying", action="store_true")
     # Training
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--max_iters", type=int, default=10000)
@@ -117,6 +118,7 @@ def main():
         num_layers=args.num_layers,
         d_ff=args.d_ff,
         dropout=args.dropout,
+        weight_tying=args.weight_tying,
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters())

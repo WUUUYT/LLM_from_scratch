@@ -18,6 +18,7 @@ class TransformerLM(nn.Module):
         d_ff: int,
         theta: float = 10000.0,
         dropout: float = 0.0,
+        weight_tying: bool = False,
     ):
         super().__init__()
         self.embedding = Embedding(vocab_size, d_model)
@@ -31,7 +32,9 @@ class TransformerLM(nn.Module):
         )
         self.norm = RMSNorm(d_model)
         self.lm_head = Linear(d_model, vocab_size)
-        self.lm_head.weight = self.embedding.weight
+        if weight_tying:
+            self.lm_head.weight = self.embedding.weight
+            nn.init.normal_(self.embedding.weight, mean=0, std=0.02)
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         batch, seq_len = token_ids.shape
