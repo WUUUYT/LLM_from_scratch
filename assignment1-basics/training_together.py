@@ -88,8 +88,9 @@ def estimate_val_loss(model, val_data, batch_size, context_length, device, val_i
     losses = []
     for _ in range(val_iters):
         x, y = data_loading(val_data, batch_size, context_length, device)
-        logits = model(x)
-        loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == "cuda")):
+            logits = model(x)
+            loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
         losses.append(loss.item())
     model.train()
     return sum(losses) / len(losses)
@@ -128,6 +129,8 @@ def main():
         model = torch.compile(model)
     elif args.device == "mps":
         model = torch.compile(model, backend="aot_eager")
+    elif args.device == "cuda":
+        model = torch.compile(model)
     # -- intialize optimizer ------------------------------
     decay_params = [p for p in model.parameters() if p.dim() >= 2]
     no_decay_params = [p for p in model.parameters() if p.dim() < 2]
@@ -171,8 +174,9 @@ def main():
 
         x, y = data_loading(train_data, args.batch_size, args.context_length, device)
 
-        logits = model(x)
-        loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+        with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=(args.device == "cuda")):
+            logits = model(x)
+            loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
 
         optimizer.zero_grad()
         loss.backward()
