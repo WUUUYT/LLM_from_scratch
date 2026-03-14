@@ -10,6 +10,11 @@ import regex as re
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
+# '(?:[sdmt]|ll|ve|re) — 's, 're, 'll
+# ?\p{L}+ — letter sequence
+# ?\p{N}+ — number sequence
+# ?[^\s\p{L}\p{N}]+ — characters
+# \s+(?!\S)|\s+ — space
 
 
 def find_chunk_boundaries(
@@ -44,21 +49,30 @@ def find_chunk_boundaries(
 
             initial_position += len(mini_chunk)
 
-    return sorted(set(chunk_boundaries))
+    return sorted(set(chunk_boundaries))  # return a list
 
 
 def pretokenize(text: str, special_tokens: list[str]) -> list[bytes]:
     if not special_tokens:
         chunks = [text]
     else:
+        # re.escape: Escapes all special regex characters in a string so it can be used as a literal pattern.
         pattern = "|".join(re.escape(t) for t in special_tokens)
+        # not keeping tokens themselves
         chunks = re.split(pattern, text)
     words = []
     for chunk in chunks:
         if chunk:
+            # Iterator
             matches = re.finditer(PAT, chunk)
             for match in matches:
                 words.append(match.group(0).encode("utf-8"))
+                # group() or group(0) returns the whole match result
+                # group(1) return the subgroup captured by parentheses
+                # m = re.search(r'(\w+)@(\w+)', "user@gmail")
+                # print(m.group(0))  # 'user@gmail'
+                # print(m.group(1))  # 'user'
+                # print(m.group(2))  # 'gmail'
     return words
 
 
@@ -117,7 +131,20 @@ def merge_pairs_with_heap_index(
     list,
     dict[tuple[int, int], set[tuple[int, ...]]],
 ]:
+    """
+    1. Find affected words for the best pair
+    2. iterate word
+        1. delete word count
+        2. subtract pair count for each pair in the word
+        3. add pair to 'changed_pair'
+        4. discard word in 'pair_to_words'
+        5. get new word, update word counts
+        6. for each new pair in the new word: update pair counts, update 'changed_pairs' set, update 'pair_to_words'
+    3. for each changed pair (count > 0), construct a heapitem and push.
+
+    """
     changed_pairs = set()
+    # only work with words that contain 'best_pair'
     affected_words = list(pair_to_words.get(best_pair, set()))
 
     for word in affected_words:
@@ -145,6 +172,7 @@ def merge_pairs_with_heap_index(
                 pair_counts[new_p] += count
                 changed_pairs.add(new_p)
                 pair_to_words.setdefault(new_p, set()).add(new_word)
+
     for p in changed_pairs:
         count = pair_counts.get(p, 0)
         if count > 0:
@@ -197,7 +225,7 @@ def _process_chunk_streaming(
         with open(input_path, "rb") as f:
             f.seek(start)
             remaining = end - start
-            buffer = b""  # 跨边界缓冲区
+            buffer = b""
 
             processed_bytes = 0
             while remaining > 0:
@@ -362,11 +390,11 @@ if __name__ == "__main__":
     output_dir = "outputs"
     os.makedirs(output_dir, exist_ok=True)
     data_path = "data/"
-    input_path = "owt_valid.txt"
+    input_path = "owt_train.txt"
     vocab_size = 32000
     special_tokens = ["<|endoftext|>"]
     profile = True
-    num_procs = 2
+    num_procs = 4
     output_path_vocab = "owt_vocab.pkl"
     output_path_merges = "owt_merges.pkl"
     mini_chunk_size = 8 * 1024 * 1024
