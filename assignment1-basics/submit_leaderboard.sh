@@ -22,17 +22,17 @@ python training_together.py \
     --vocab_size 32000 \
     --context_length 512 \
     --d_model 512 \
-    --num_heads 16 \
+    --num_heads 8 \
     --num_layers 6 \
-    --d_ff 1344 \
+    --d_ff 2048 \
     --batch_size 64 \
-    --max_iters 74000 \
-    --max_lr 6e-4 \
-    --min_lr 6e-5 \
+    --max_iters 80000 \
+    --max_lr 8e-4 \
+    --min_lr 8e-5 \
     --warmup_iters 2000 \
     --val_every 500 \
     --val_iters 20 \
-    --checkpoint_every 5000 \
+    --checkpoint_every 1000 \
     --weight_tying \
     --device cuda \
     --wandb \
