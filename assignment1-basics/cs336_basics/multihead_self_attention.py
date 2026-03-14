@@ -58,4 +58,3 @@ class CausalMultiHeadSelfAttention(nn.Module):
         )
 
         return self.W_o(out)
-        return self.W_o(out)

@@ -23,8 +23,8 @@ class RotaryPositionEmbedding(nn.Module):
         cos = self.cos[token_positions].to(x.dtype)
         sin = self.sin[token_positions].to(x.dtype)
 
-        cos = cos.unsqueeze(0)  # (batch, 1, seq_len, d_k//2)
-        sin = sin.unsqueeze(0)  # (batch, 1, seq_len, d_k//2)
+        cos = cos.unsqueeze(-3)  # (..., 1, seq_len, d_k//2) - broadcasts over heads
+        sin = sin.unsqueeze(-3)  # (..., 1, seq_len, d_k//2) - broadcasts over heads
 
         x_paired = x.view(*x.shape[:-1], -1, 2)
         x1 = x_paired[..., 0]

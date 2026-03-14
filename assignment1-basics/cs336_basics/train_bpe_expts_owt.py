@@ -32,9 +32,7 @@ end = time.time()
 print("Done.")
 print(f"Training took {end - start:.2f} seconds")
 longest = max(vocab.values(), key=len)
-print(
-    f"Longest token: {longest.decode('utf-8', errors='replace')} ({len(longest)} bytes)"
-)
+print(f"Longest token: {longest.decode('utf-8', errors='replace')} ({len(longest)} bytes)")
 
 with open(output_path_vocab, "wb") as f:
     pickle.dump(vocab, f)
