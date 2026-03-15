@@ -9,24 +9,31 @@
 
 nvidia-smi
 
+
+WORK_DIR=/storage/ice1/0/5/ywu3117/LLM_from_scratch/assignment1-basics
+cd $WORK_DIR
 source .venv/bin/activate
 
-TRAIN_PATH="data/tinystories_train_ids.uint16"
-VAL_PATH="data/tinystories_test_ids.uint16"
-BEST_LR=1e-3
-MIN_LR=3e-5
+TRAIN_PATH="dataset/tinystories_train_ids.uint16"
+VAL_PATH="dataset/tinystories_valid_ids.uint16"
+BASE_LR=1e-3
+BASE_BATCH=128
 TOTAL_TOKENS=327680000
 
-# batch_size 从 1 到 GPU 显存上限
-# max_iters = TOTAL_TOKENS / (batch_size × 256)
-# batch_size = 1 8 32 64 128 256 512
-for BATCH_SIZE in 32 64 128 256 512; do
-    MAX_ITERS=$(python -c "print(int($TOTAL_TOKENS / ($BATCH_SIZE * 256)))")
-    echo "DEBUG: MAX_ITERS='$MAX_ITERS', exit_code=$?"
-    WARMUP_ITERS=$(python -c "print(int($MAX_ITERS * 0.04))")
-    echo "=============================="
-    echo "Running with batch_size=$BATCH_SIZE, max_iters=$MAX_ITERS"
-    echo "=============================="
+for BATCH_SIZE in 16 32 64 128 256 512 1024; do
+    MAX_ITERS=$(( TOTAL_TOKENS / (BATCH_SIZE * 256) ))
+    WARMUP_ITERS=$(( MAX_ITERS * 4 / 100 ))
+
+    VAL_EVERY=$(( MAX_ITERS / 50 ))
+    if [ $VAL_EVERY -lt 1 ]; then VAL_EVERY=1; fi
+
+    CURRENT_LR=$(awk -v base=$BASE_LR -v b=$BATCH_SIZE -v base_b=$BASE_BATCH 'BEGIN { print base * sqrt(b / base_b) }')
+    MIN_LR=$(awk -v clr=$CURRENT_LR 'BEGIN { print clr / 10 }')
+
+    echo "========================================================"
+    echo "🚀 BATCH_SIZE=$BATCH_SIZE | ITERS=$MAX_ITERS | LR=$CURRENT_LR | VAL_EVERY=$VAL_EVERY"
+    echo "========================================================"
+
     python training_together.py \
         --train_path $TRAIN_PATH \
         --val_path $VAL_PATH \
@@ -38,13 +45,14 @@ for BATCH_SIZE in 32 64 128 256 512; do
         --d_ff 1344 \
         --batch_size $BATCH_SIZE \
         --max_iters $MAX_ITERS \
-        --max_lr $BEST_LR \
+        --max_lr $CURRENT_LR \
         --min_lr $MIN_LR \
         --warmup_iters $WARMUP_ITERS \
-        --val_every 100 \
-        --checkpoint_every 1000 \
+        --val_every $VAL_EVERY \
+        --checkpoint_every $(( MAX_ITERS / 5 )) \
         --device cuda \
         --wandb \
         --wandb_project cs336_batch_sweep \
+        --wandb_name "bs_${BATCH_SIZE}" \
         --checkpoint_dir checkpoints/batch_$BATCH_SIZE
 done

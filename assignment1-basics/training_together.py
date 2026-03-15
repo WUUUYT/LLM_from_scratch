@@ -18,6 +18,7 @@ Usage:
         --checkpoint_dir checkpoints/ \
         --checkpoint_every 500 \
         --val_every 100 \
+        --log_every 10 \
         --device cuda
 """
 
@@ -28,9 +29,9 @@ from pathlib import Path
 
 import numpy as np
 import torch
-import wandb
 from tqdm import tqdm
 
+import wandb
 from cs336_basics.adamw import AdamW
 from cs336_basics.checkpointing import load_checkpoint, save_checkpoint
 from cs336_basics.cross_entropy import cross_entropy
@@ -67,9 +68,11 @@ def get_args():
     parser.add_argument("--checkpoint_every", type=int, default=500)
     parser.add_argument("--val_every", type=int, default=100)
     parser.add_argument("--val_iters", type=int, default=20)
+    parser.add_argument("--log_every", type=int, default=10, help="Print and log training metrics every N steps")
     parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to resume from")
     parser.add_argument("--wandb", action="store_true")
     parser.add_argument("--wandb_project", type=str, default="cs336_lm")
+    parser.add_argument("--wandb_name", type=str, default=None)
     # System
     parser.add_argument(
         "--device",
@@ -86,9 +89,10 @@ def get_args():
 def estimate_val_loss(model, val_data, batch_size, context_length, device, val_iters):
     model.eval()
     losses = []
+    use_bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
     for _ in range(val_iters):
         x, y = data_loading(val_data, batch_size, context_length, device)
-        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == "cuda")):
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
             logits = model(x)
             loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
         losses.append(loss.item())
@@ -98,11 +102,10 @@ def estimate_val_loss(model, val_data, batch_size, context_length, device, val_i
 
 def main():
     args = get_args()
-    if args.device == "mps":
-        pass
-    elif args.device == "cuda":
-        torch.set_float32_matmul_precision("high")
     device = torch.device(args.device)
+    if device.type == "cuda":
+        torch.set_float32_matmul_precision("high")
+
     Path(args.checkpoint_dir).mkdir(parents=True, exist_ok=True)
 
     # -- load data (memmap) -------------------------------
@@ -115,8 +118,8 @@ def main():
         vocab_size=args.vocab_size,
         context_length=args.context_length,
         d_model=args.d_model,
-        num_heads=args.num_heads,
         num_layers=args.num_layers,
+        num_heads=args.num_heads,
         d_ff=args.d_ff,
         dropout=args.dropout,
         weight_tying=args.weight_tying,
@@ -125,12 +128,14 @@ def main():
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model parameters: {n_params:,}", flush=True)
 
-    if args.device == "cpu":
+    if device.type == "cuda":
         model = torch.compile(model)
-    elif args.device == "mps":
-        model = torch.compile(model, backend="aot_eager")
-    elif args.device == "cuda":
-        model = torch.compile(model)
+    elif device.type == "mps":
+        try:
+            model = torch.compile(model, backend="aot_eager")
+        except Exception as e:
+            print(f"Warning: MPS compile failed, continuing without compile. ({e})")
+
     # -- intialize optimizer ------------------------------
     decay_params = [p for p in model.parameters() if p.dim() >= 2]
     no_decay_params = [p for p in model.parameters() if p.dim() < 2]
@@ -153,12 +158,14 @@ def main():
 
     # -- initialize wandb ----------------------------------
     if args.wandb:
-        wandb.init(project=args.wandb_project, config=vars(args))
+        wandb.init(project=args.wandb_project, name=args.wandb_name, config=vars(args))
 
     # -- training ------------------------------------------
     model.train()
     t0 = time.time()
     train_start_time = time.time()
+
+    use_bf16 = device.type == "cuda" and torch.cuda.is_bf16_supported()
 
     pbar = tqdm(range(start_iter + 1, args.max_iters + 1))
     for iteration in pbar:
@@ -174,25 +181,33 @@ def main():
 
         x, y = data_loading(train_data, args.batch_size, args.context_length, device)
 
-        with torch.autocast(device_type=args.device, dtype=torch.bfloat16, enabled=(args.device == "cuda")):
+        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=use_bf16):
             logits = model(x)
             loss = cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
 
-        optimizer.zero_grad()
         loss.backward()
-
         gradient_clipping(model.parameters(), args.max_grad_norm)
-
         optimizer.step()
+
+        optimizer.zero_grad(set_to_none=True)
 
         pbar.set_postfix({"loss": f"{loss.item():.4f}", "lr": f"{lr:.2e}"})
 
         # -- logging ----------------------------------------
-        if iteration % args.val_every == 0:
-            t1 = time.time()
-            dt = t1 - t0
-            t0 = t1
+        if iteration % args.log_every == 0 and args.wandb:
+            wandb.log(
+                {
+                    "train/loss": loss.item(),
+                    "train/ppl": math.exp(loss.item()),
+                    "lr": lr,
+                    "train/step_time": (time.time() - t0) / args.log_every,
+                },
+                step=iteration,
+            )
 
+            t0 = time.time()
+
+        if iteration % args.val_every == 0:
             val_loss = estimate_val_loss(
                 model,
                 val_data,
@@ -201,26 +216,22 @@ def main():
                 device,
                 args.val_iters,
             )
-            train_ppl = torch.exp(loss).item()
+            train_ppl = math.exp(loss.item())
             val_ppl = math.exp(val_loss)
+
             print(
-                f"iter {iteration:6d} | "
-                f"loss {loss.item():.4f} | "
-                f"val_loss {val_loss:.4f} | "
-                f"ppl {train_ppl:.2f} | "
-                f"val_ppl {val_ppl:.2f} | "
-                f"lr {lr:.2e} | "
-                f"dt {dt:.1f}s",
+                f"\n[Iter {iteration:6d}] "
+                f"Train Loss {loss.item():.4f} (PPL {train_ppl:.2f}) | "
+                f"Val Loss {val_loss:.4f} (PPL {val_ppl:.2f}) | "
+                f"LR {lr:.2e}",
                 flush=True,
             )
+
             if args.wandb:
                 wandb.log(
                     {
-                        "train/loss": loss.item(),
-                        "train/ppl": train_ppl,
                         "val/loss": val_loss,
                         "val/ppl": val_ppl,
-                        "lr": lr,
                         "wallclock_time": time.time() - train_start_time,
                     },
                     step=iteration,
@@ -228,9 +239,11 @@ def main():
         if iteration % args.checkpoint_every == 0:
             ckpt_path = Path(args.checkpoint_dir) / f"ckpt_{iteration:07d}.pt"
             save_checkpoint(model, optimizer, iteration, ckpt_path)
-            print(f"Saved checkpoint: {ckpt_path}")
 
     print("Training complete!")
+
+    final_ckpt_path = Path(args.checkpoint_dir) / f"ckpt_final_{args.max_iters}.pt"
+    save_checkpoint(model, optimizer, args.max_iters, final_ckpt_path)
     if args.wandb:
         wandb.finish()
 
