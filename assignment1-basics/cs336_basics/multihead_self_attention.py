@@ -26,15 +26,14 @@ class CausalMultiHeadSelfAttention(nn.Module):
         self.W_o = Linear(d_model, d_model)
 
         if rope:
-            self.rope = RotaryPositionEmbedding(
-                theta=theta, d_k=self.d_k, max_seq_len=max_seq_len
-            )
+            self.rope = RotaryPositionEmbedding(theta=theta, d_k=self.d_k, max_seq_len=max_seq_len)
         else:
             self.rope = None
 
-    def forward(
-        self, x: torch.Tensor, token_positions: torch.Tensor = None
-    ) -> torch.Tensor:
+        causal_mask = torch.tril(torch.ones((max_seq_len, max_seq_len), dtype=torch.bool))
+        self.register_buffer("causal_mask", causal_mask, persistent=False)
+
+    def forward(self, x: torch.Tensor, token_positions: torch.Tensor = None) -> torch.Tensor:
         *batch_dims, seq_len, _ = x.shape
 
         Q, K, V = (
@@ -48,13 +47,9 @@ class CausalMultiHeadSelfAttention(nn.Module):
             Q = self.rope(Q, token_positions)
             K = self.rope(K, token_positions)
 
-        causal_mask = torch.triu(
-            torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device), diagonal=1
-        )
+        causal_mask = self.causal_mask[:seq_len, :seq_len]
 
-        out = scaled_dot_product_attention(Q, K, V, ~causal_mask)
-        out = (
-            out.transpose(-2, -3).contiguous().view(*batch_dims, seq_len, self.d_model)
-        )
+        out = scaled_dot_product_attention(Q, K, V, causal_mask)
+        out = out.transpose(-2, -3).contiguous().view(*batch_dims, seq_len, self.d_model)
 
         return self.W_o(out)

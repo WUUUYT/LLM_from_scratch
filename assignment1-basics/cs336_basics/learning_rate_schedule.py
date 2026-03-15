@@ -2,6 +2,9 @@ from math import cos, pi
 
 
 def learning_rate_schedule(t, lr_max, lr_min, Tw, Tc):
+    if Tc <= Tw:
+        Tc = Tw + 1e-8
+
     if t < Tw:
         return t / Tw * lr_max
     elif t <= Tc:

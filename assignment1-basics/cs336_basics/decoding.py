@@ -1,5 +1,3 @@
-from typing import Optional
-
 import torch
 import torch.nn.functional as F
 
@@ -10,9 +8,9 @@ def decode(
     prompt: str,
     max_new_tokens: int = 100,
     temperature: float = 1.0,
-    top_p: Optional[float] = None,
+    top_p: float | None = None,
     device: str = "cpu",
-    eot_token: str = "<|endoftext|>"
+    eot_token: str = "<|endoftext|>",
 ):
     model.eval()
     eot_token_id = tokenizer._special_str_to_id.get(eot_token, None)
@@ -23,7 +21,7 @@ def decode(
 
     with torch.no_grad():
         for _ in range(max_new_tokens):
-            logits = model(input_ids) # (1, seq_len, vocab_size)
+            logits = model(input_ids)  # (1, seq_len, vocab_size)
             next_token_logits = logits[0, -1, :]
             if temperature != 1.0:
                 next_token_logits = next_token_logits / temperature

@@ -16,6 +16,7 @@ class TransformerLM(nn.Module):
         num_layers: int,
         num_heads: int,
         d_ff: int,
+        rope=True,
         theta: float = 10000.0,
         dropout: float = 0.0,
         weight_tying: bool = False,
@@ -25,7 +26,13 @@ class TransformerLM(nn.Module):
         self.blocks = nn.ModuleList(
             [
                 TransformerBlock(
-                    d_model, num_heads, d_ff, context_length, theta, dropout
+                    d_model=d_model,
+                    num_heads=num_heads,
+                    d_ff=d_ff,
+                    rope=rope,
+                    max_seq_len=context_length,
+                    theta=theta,
+                    dropout=dropout,
                 )
                 for _ in range(num_layers)
             ]
@@ -38,11 +45,7 @@ class TransformerLM(nn.Module):
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
         batch, seq_len = token_ids.shape
-        token_positions = (
-            torch.arange(seq_len, device=token_ids.device)
-            .unsqueeze(0)
-            .expand(batch, -1)
-        )
+        token_positions = torch.arange(seq_len, device=token_ids.device).unsqueeze(0).expand(batch, -1)
 
         x = self.embedding(token_ids)
         for block in self.blocks:

@@ -19,7 +19,7 @@ class RotaryPositionEmbedding(nn.Module):
         """
         token_positions: index of token passed in.
         """
-        token_positions = token_positions.to(x.device)
+        token_positions = token_positions.to(self.cos.device)
         cos = self.cos[token_positions].to(x.dtype)
         sin = self.sin[token_positions].to(x.dtype)
 

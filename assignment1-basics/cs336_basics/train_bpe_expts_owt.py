@@ -5,14 +5,14 @@ import time
 from cs336_basics.train_bpe import train_bpe
 
 ################Configurations#####################
-output_dir = "outputs"
+output_dir = "/storage/ice1/0/5/ywu3117/LLM_from_scratch/assignment1-basics/outputs/"
 os.makedirs(output_dir, exist_ok=True)
-data_path = "data/"
+data_path = "/storage/ice1/0/5/ywu3117/LLM_from_scratch/assignment1-basics/data/"
 input_path = "owt_train.txt"
 vocab_size = 32000
 special_tokens = ["<|endoftext|>"]
 profile = True
-num_procs = 1
+num_procs = 4
 mini_chunk_size = 8 * 1024 * 1024
 output_path_vocab = output_dir + "/" + "owt_vocab.pkl"
 output_path_merges = output_dir + "/" + "owt_merges.pkl"

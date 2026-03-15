@@ -12,6 +12,7 @@ class TransformerBlock(nn.Module):
         d_model: int,
         num_heads: int,
         d_ff: int,
+        rope=True,
         max_seq_len: int = 1024,
         theta: float = 10000.0,
         dropout=0.0,
@@ -21,7 +22,7 @@ class TransformerBlock(nn.Module):
         self.attn = CausalMultiHeadSelfAttention(
             d_model,
             num_heads,
-            rope=True,
+            rope=rope,
             max_seq_len=max_seq_len,
             theta=theta,
         )
@@ -30,6 +31,8 @@ class TransformerBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.attn_norm(x), token_positions)
-        x = x + self.dropout(self.ff(self.ff_norm(x)))
+        attn_out = self.attn(self.attn_norm(x), token_positions)
+        x = x + self.dropout(attn_out)
+        ff_out = self.ff(self.ff_norm(x))
+        x = x + self.dropout(ff_out)
         return x

@@ -13,7 +13,8 @@ def save_checkpoint(model, optimizer, iteration, out):
 
 
 def load_checkpoint(src, model, optimizer):
-    ckpt = torch.load(src)
+    device = next(model.parameters()).device
+    ckpt = torch.load(src, map_location=device)
     model.load_state_dict(ckpt["model"])
     optimizer.load_state_dict(ckpt["optimizer"])
     return ckpt["iteration"]

@@ -213,7 +213,7 @@ def throughput_estimate_pile():
     print(f"Estimated time for Pile: {hours:.2f} hours")
 
 
-def encode_tinystories():
+def encode_tinystories_train():
     # TinyStories
     print("\n=== Encoding TinyStories ===")
     ts_tok = Tokenizer.from_files(
@@ -224,13 +224,13 @@ def encode_tinystories():
     encode_corpus_to_uint16(
         ts_tok,
         "data/TinyStoriesV2-GPT4-train.txt",
-        "data/tinystories_train_ids.uint16",
+        "dataset/tinystories_train_ids.uint16",
         chunk_bytes=64_000_000,
-        num_procs=4,
+        num_procs=1,
     )
 
 
-def encode_tinystories_test():
+def encode_tinystories_valid():
     print("\n=== Encoding TinyStories Test Set ===")
     ts_tok = Tokenizer.from_files(
         "outputs/tinystories_vocab.pkl",
@@ -241,15 +241,15 @@ def encode_tinystories_test():
     encode_corpus_to_uint16(
         ts_tok,
         "data/TinyStoriesV2-GPT4-valid.txt",
-        "data/tinystories_test_ids.uint16",
+        "dataset/tinystories_valid_ids.uint16",
         chunk_bytes=64_000_000,
-        num_procs=4,
+        num_procs=1,
     )
 
 
-def encode_owt():
+def encode_owt_train():
     # OpenWebText
-    print("\n=== Encoding OpenWebText ===")
+    print("\n=== Encoding OpenWebText Training Set ===")
     owt_tok = Tokenizer.from_files(
         "outputs/owt_vocab.pkl",
         "outputs/owt_merges.pkl",
@@ -258,14 +258,15 @@ def encode_owt():
     encode_corpus_to_uint16(
         owt_tok,
         "data/owt_train.txt",
-        "data/owt_train_ids.uint16",
+        "dataset/owt_train_ids.uint16",
         chunk_bytes=256_000_000,
         num_procs=1,
     )
 
+
 def encode_owt_valid():
     # OpenWebText
-    print("\n=== Encoding OpenWebText ===")
+    print("\n=== Encoding OpenWebText Valididation Set ===")
     owt_tok = Tokenizer.from_files(
         "outputs/owt_vocab.pkl",
         "outputs/owt_merges.pkl",
@@ -274,7 +275,7 @@ def encode_owt_valid():
     encode_corpus_to_uint16(
         owt_tok,
         "data/owt_valid.txt",
-        "data/owt_valid_ids.uint16",
+        "dataset/owt_valid_ids.uint16",
         chunk_bytes=256_000_000,
         num_procs=1,
     )

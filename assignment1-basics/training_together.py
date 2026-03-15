@@ -108,7 +108,7 @@ def main():
     # -- load data (memmap) -------------------------------
     train_data = np.memmap(args.train_path, dtype=np.dtype(args.dtype), mode="r")
     val_data = np.memmap(args.val_path, dtype=np.dtype(args.dtype), mode="r")
-    print(f"Train tokens: {len(train_data):,} | Val tokens: {len(val_data):,}")
+    print(f"Train tokens: {len(train_data):,} | Val tokens: {len(val_data):,}", flush=True)
 
     # -- initialize model ---------------------------------
     model = TransformerLM(
@@ -123,7 +123,7 @@ def main():
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters())
-    print(f"Model parameters: {n_params:,}")
+    print(f"Model parameters: {n_params:,}", flush=True)
 
     if args.device == "cpu":
         model = torch.compile(model)
@@ -210,7 +210,8 @@ def main():
                 f"ppl {train_ppl:.2f} | "
                 f"val_ppl {val_ppl:.2f} | "
                 f"lr {lr:.2e} | "
-                f"dt {dt:.1f}s"
+                f"dt {dt:.1f}s",
+                flush=True,
             )
             if args.wandb:
                 wandb.log(

@@ -5,16 +5,15 @@ import torch.nn as nn
 
 
 class SwiGLU(nn.Module):
-    def __init__(self, d_model, d_ff=None, device=None, dtype=None):
+    def __init__(self, d_model, d_ff=None):
         super().__init__()
 
         self.d_model = d_model
         self.d_ff = d_ff if d_ff else int(((d_model * 8 / 3 + 63) // 64) * 64)
 
-        factory_kwargs = {"device": device, "dtype": dtype}
-        self.W1 = nn.Parameter(torch.empty((self.d_ff, self.d_model), **factory_kwargs))
-        self.W2 = nn.Parameter(torch.empty((self.d_model, self.d_ff), **factory_kwargs))
-        self.W3 = nn.Parameter(torch.empty((self.d_ff, self.d_model), **factory_kwargs))
+        self.W1 = nn.Parameter(torch.empty((self.d_ff, self.d_model)))
+        self.W2 = nn.Parameter(torch.empty((self.d_model, self.d_ff)))
+        self.W3 = nn.Parameter(torch.empty((self.d_ff, self.d_model)))
         self.reset_parameters()
 
     def reset_parameters(self):
