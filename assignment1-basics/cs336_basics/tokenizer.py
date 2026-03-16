@@ -47,7 +47,14 @@ def _split_by_special_tokens(text: str, special_tokens: list[str]) -> list[str]:
 
 
 def _pretokenize_to_bytes(text: str) -> list[bytes]:
-    return [m.group(0).encode("utf-8") for m in PAT.finditer(text)]
+    tokens = []
+    for m in PAT.finditer(text):
+        word = m.group(0)
+        # 强制切分极其长的连续字符串（如连续几万个空格/标点）
+        # 将最大长度限制在 1000 字符，彻底避免 O(N^2) 算力卡死
+        for i in range(0, len(word), 1000):
+            tokens.append(word[i : i + 1000].encode("utf-8"))
+    return tokens
 
 
 def _apply_bpe_merges(word: bytes, merge_ranks: dict[tuple[bytes, bytes], int]) -> list[bytes]:

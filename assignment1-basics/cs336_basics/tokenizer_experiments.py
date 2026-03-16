@@ -8,9 +8,19 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-from cs336_basics.tokenizer import Tokenizer
+from cs336_basics.tokenizer import Tokenizer, _worker_encode
 
 DOC_SEP = "<|endoftext|>"
+
+
+def _worker_encode_with_len(payload: tuple[str, int]) -> tuple[list[int], int]:
+    """
+    接收 (文本, 原始字节数)，并原样返回 (Token ID列表, 原始字节数)
+    这样我们在 imap 流式处理时就不会丢失更新进度条所需的信息。
+    """
+    text, raw_len = payload
+    return _worker_encode(text), raw_len
+
 
 # ---------------------------------------------------------------------------
 # I/O helpers
@@ -167,40 +177,58 @@ def encode_corpus_to_uint16(
         shape=(max_tokens_est,),
     )
     write_pos = 0
+    last_flush_pos = 0
 
     pool: Pool | None = None
     if num_procs > 1:
         pool = tokenizer.make_pool(num_procs)
+
     try:
         with (
             open(input_path, "rb") as f,
             tqdm(total=file_size, unit="B", unit_scale=True, desc="Encoding") as pbar,
         ):
-            for text, raw_len in safe_read_chunks(f, chunk_bytes):
-                pbar.update(raw_len)
-                if pool is not None:
-                    ids = tokenizer.encode_parallel(text, pool, num_procs)
-                else:
+            chunk_gen = safe_read_chunks(f, chunk_bytes)
+            if pool is not None:
+                # 多进程流式处理分支
+                results_iter = pool.imap(_worker_encode_with_len, chunk_gen, chunksize=1)
+
+                for ids, raw_len in results_iter:
+                    pbar.update(raw_len)
+                    n = len(ids)
+
+                    if write_pos + n > max_tokens_est:
+                        new_size = max(max_tokens_est * 2, write_pos + n)
+                        mmap.flush()
+                        mmap = np.memmap(output_path, dtype=np.uint16, mode="r+", shape=(new_size,))
+                        max_tokens_est = new_size
+
+                    mmap[write_pos : write_pos + n] = ids
+                    write_pos += n
+
+                    # Keeping the fixed flush logic from earlier
+                    if write_pos - last_flush_pos >= 10_000_000:
+                        mmap.flush()
+                        last_flush_pos = write_pos
+            else:
+                # 单进程备用分支
+                for text, raw_len in chunk_gen:
+                    pbar.update(raw_len)
                     ids = tokenizer.encode(text)
+                    n = len(ids)
 
-                n = len(ids)
+                    if write_pos + n > max_tokens_est:
+                        new_size = max(max_tokens_est * 2, write_pos + n)
+                        mmap.flush()
+                        mmap = np.memmap(output_path, dtype=np.uint16, mode="r+", shape=(new_size,))
+                        max_tokens_est = new_size
 
-                if write_pos + n > max_tokens_est:
-                    new_size = max(max_tokens_est * 2, write_pos + n)
-                    mmap.flush()
-                    mmap = np.memmap(
-                        output_path,
-                        dtype=np.uint16,
-                        mode="r+",
-                        shape=(new_size,),
-                    )
-                    max_tokens_est = new_size
+                    mmap[write_pos : write_pos + n] = ids
+                    write_pos += n
 
-                mmap[write_pos : write_pos + n] = ids
-                write_pos += n
-
-                if write_pos % 10_000_000 == 0:
-                    mmap.flush()
+                    if write_pos - last_flush_pos >= 10_000_000:
+                        mmap.flush()
+                        last_flush_pos = write_pos
     finally:
         # Always clean up the pool, even if an exception occurs.
         if pool is not None:
@@ -285,7 +313,7 @@ def encode_tinystories(num_procs):
     )
 
 
-def encode_owt(num_procs):
+def encode_owt(num_procs, chunk_bytes):
     # OpenWebText
     print("\n=== Encoding OpenWebText ===")
     owt_tok = Tokenizer.from_files(
@@ -297,14 +325,14 @@ def encode_owt(num_procs):
         owt_tok,
         "data/owt_train.txt",
         "dataset/owt_train_ids.uint16",
-        chunk_bytes=256_000_000,
+        chunk_bytes=chunk_bytes,
         num_procs=num_procs,
     )
     encode_corpus_to_uint16(
         owt_tok,
         "data/owt_valid.txt",
         "dataset/owt_valid_ids.uint16",
-        chunk_bytes=256_000_000,
+        chunk_bytes=chunk_bytes,
         num_procs=num_procs,
     )
 
@@ -312,4 +340,4 @@ def encode_owt(num_procs):
 if __name__ == "__main__":
     num_cpus = int(os.environ.get("SLURM_CPUS_PER_TASK", 1))
     print(f"Using {num_cpus} CPU cores")
-    encode_owt(num_cpus)
+    encode_owt(num_cpus, 64_000_000)
