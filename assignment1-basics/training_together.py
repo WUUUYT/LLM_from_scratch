@@ -79,7 +79,6 @@ def get_args():
         type=str,
         default=("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"),
     )
-    parser.add_argument("--n_cpus", type=int, default=4)
     parser.add_argument("--dtype", type=str, default="uint16")
 
     return parser.parse_args()
