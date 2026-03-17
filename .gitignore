@@ -18,6 +18,7 @@ assignment1-basics/README.md
 assignment1-basics/make_submission.sh
 assignment1-basics/wandb
 assignment1-basics/test.sh
+assignment1-basics/.claude
 ### C++ ###
 # Prerequisites
 *.d
