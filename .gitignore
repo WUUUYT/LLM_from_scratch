@@ -7,6 +7,7 @@ Transformer/
 *.pt
 
 
+
 ###### Assignment 1 ########
 assignment1-basics/outputs
 assignment1-basics/data
@@ -16,6 +17,7 @@ assignment1-basics/tests
 assignment1-basics/README.md
 assignment1-basics/make_submission.sh
 assignment1-basics/wandb
+assignment1-basics/test.sh
 ### C++ ###
 # Prerequisites
 *.d
