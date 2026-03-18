@@ -10,9 +10,12 @@
 source .venv/bin/activate
 
 python generate.py \
-    --checkpoint checkpoints/lr_1e-3/ckpt_final_10000.pt \
+    --checkpoint checkpoints/lr_1e-2/ckpt_final_10000.pt \
+    --vocab_path outputs/tinystories_vocab.pkl \
+    --merges_path outputs/tinystories_merges.pkl \
     --prompt "Once upon a time" \
-    --max_new_tokens 350 \
+    --max_new_tokens 300 \
     --temperature 0.8 \
     --top_p 0.9 \
-    --device cuda
+    --device cuda \
+    --vocab_size 10000 \

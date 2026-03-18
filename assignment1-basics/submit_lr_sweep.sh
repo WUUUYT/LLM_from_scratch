@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=8:00:00
+#SBATCH --time=3:00:00
 
 nvidia-smi
 
@@ -33,14 +33,17 @@ for LR in 1e-2 8e-3 3e-3 1e-3 8e-4 5e-4 1e-4; do
         --d_ff 1344 \
         --batch_size 128 \
         --max_iters 10000 \
+        --max_lr $LR \
         --min_lr $MIN_LR \
         --warmup_iters 1000 \
-        --val_every 100 \
+        --weight_decay 0.1 \
+        --checkpoint_dir checkpoints/lr_$LR \
         --checkpoint_every 1000 \
-        --device cuda \
+        --val_every 100 \
+        --val_iters 20 \
+        --log_every 10 \
         --wandb \
         --wandb_project cs336_lr_sweep \
         --wandb_name "lr_${LR}" \
-        --max_lr $LR \
-        --checkpoint_dir checkpoints/lr_$LR
+        --device cuda
 done

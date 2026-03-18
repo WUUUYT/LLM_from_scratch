@@ -5,7 +5,7 @@
 #SBATCH --gres=gpu:a100:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
-#SBATCH --time=8:00:00
+#SBATCH --time=3:00:00
 
 nvidia-smi
 
@@ -30,9 +30,9 @@ for BATCH_SIZE in 16 32 64 128 256 512 1024; do
     CURRENT_LR=$(awk -v base=$BASE_LR -v b=$BATCH_SIZE -v base_b=$BASE_BATCH 'BEGIN { print base * sqrt(b / base_b) }')
     MIN_LR=$(awk -v clr=$CURRENT_LR 'BEGIN { print clr / 10 }')
 
-    echo "========================================================"
+    echo "======================================"
     echo "🚀 BATCH_SIZE=$BATCH_SIZE | ITERS=$MAX_ITERS | LR=$CURRENT_LR | VAL_EVERY=$VAL_EVERY"
-    echo "========================================================"
+    echo "======================================"
 
     python training_together.py \
         --train_path $TRAIN_PATH \
@@ -48,11 +48,14 @@ for BATCH_SIZE in 16 32 64 128 256 512 1024; do
         --max_lr $CURRENT_LR \
         --min_lr $MIN_LR \
         --warmup_iters $WARMUP_ITERS \
-        --val_every $VAL_EVERY \
+        --weight_decay 0.1 \
+        --checkpoint_dir checkpoints/bs_$BATCH_SIZE \
         --checkpoint_every $(( MAX_ITERS / 5 )) \
-        --device cuda \
+        --val_every $VAL_EVERY \
+        --val_iters 20 \
+        --log_every 10 \
         --wandb \
         --wandb_project cs336_batch_sweep \
         --wandb_name "bs_${BATCH_SIZE}" \
-        --checkpoint_dir checkpoints/batch_$BATCH_SIZE
+        --device cuda
 done

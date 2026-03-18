@@ -21,21 +21,28 @@ python training_together.py \
     --train_path $TRAIN_PATH \
     --val_path $VAL_PATH \
     --vocab_size 32000 \
-    --context_length 256 \
-    --d_model 512 \
-    --num_heads 16 \
-    --num_layers 4 \
-    --d_ff 1344 \
-    --batch_size 128 \
-    --max_iters 10000 \
+    --context_length 1024 \
+    --d_model 768 \
+    --num_heads 6 \
+    --num_layers 12 \
+    --d_ff 3072 \
+    --dropout 0.1 \
+    --weight_tying \
+    --batch_size 32 \
+    --max_iters 50000 \
     --max_lr 1e-3 \
     --min_lr 1e-4 \
-    --warmup_iters 1000 \
+    --warmup_iters 5000 \
+    --weight_decay 0.1 \
+    --max_grad_norm 1.0 \
+    --checkpoint_dir checkpoints/leaderboard \
+    --checkpoint_every 1000 \
     --val_every 100 \
     --val_iters 25 \
     --log_every 10 \
-    --checkpoint_every 1000 \
-    --device cuda \
     --wandb \
     --wandb_project cs336_leaderboard \
-    --checkpoint_dir checkpoints/leaderboard
+    --wandb_name "lb_l" \
+    --device cuda
+
+
