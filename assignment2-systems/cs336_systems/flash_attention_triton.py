@@ -242,6 +242,7 @@ class FlashAttentionTriton(Function):
             D=d,
             Q_TILE_SIZE=Q_TILE_SIZE,
             K_TILE_SIZE=K_TILE_SIZE,
+            IS_CAUSAL=is_causal,
         )
 
         # Save for backward
