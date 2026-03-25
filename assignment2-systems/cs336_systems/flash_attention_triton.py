@@ -40,6 +40,7 @@ def flash_fwd_kernel(
     D: tl.constexpr,
     Q_TILE_SIZE: tl.constexpr,
     K_TILE_SIZE: tl.constexpr,
+    IS_CAUSAL: tl.constexpr,
 ):
     # ── Program indices ───────────────────────────────────────────────────────
     query_tile_index = tl.program_id(0)  # which query tile (i)
@@ -96,6 +97,10 @@ def flash_fwd_kernel(
         order=(0,),
     )
 
+    # ── Global query indices for this tile (used for causal mask) ────────────
+    # q_global[r] = global row index of the r-th query in this tile
+    q_global = query_tile_index * Q_TILE_SIZE + tl.arange(0, Q_TILE_SIZE)  # [Q_TILE_SIZE]
+
     # ── Load Q tile (stays fixed for all key iterations) ─────────────────────
     Q_i = tl.load(Q_block_ptr)  # [Q_TILE_SIZE, D]
 
@@ -107,13 +112,23 @@ def flash_fwd_kernel(
     # ── Inner loop: iterate over key tiles j = 0 ... T_k-1 ───────────────────
     T_k = tl.cdiv(N_KEYS, K_TILE_SIZE)
 
-    for _ in range(T_k):
+    for j in range(T_k):
         # Load K^(j) and V^(j)
         K_j = tl.load(K_block_ptr)  # [K_TILE_SIZE, D]
         V_j = tl.load(V_block_ptr)  # [K_TILE_SIZE, D]
 
         # Step 1: S_i^(j) = Q_i @ K_j^T * scale   [Q_TILE_SIZE, K_TILE_SIZE]
         S_ij = tl.dot(Q_i, tl.trans(K_j)).to(tl.float32) * scale
+
+        if IS_CAUSAL:
+            # k_global[c] = global column index of the c-th key in this tile
+            k_global = j * K_TILE_SIZE + tl.arange(0, K_TILE_SIZE)  # [K_TILE_SIZE]
+
+            # mask[r, c] = True where key position > query position (must be -inf)
+            # q_global[:, None]: [Q_TILE_SIZE, 1]
+            # k_global[None, :]: [1, K_TILE_SIZE]
+            causal_mask = q_global[:, None] < k_global[None, :]  # [Q_TILE_SIZE, K_TILE_SIZE]
+            S_ij = tl.where(causal_mask, float("-inf"), S_ij)
 
         # Step 2: update running row maximum
         m_new = tl.maximum(m_i, tl.max(S_ij, axis=1))  # [Q_TILE_SIZE]
