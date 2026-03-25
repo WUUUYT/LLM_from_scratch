@@ -128,7 +128,7 @@ def flash_fwd_kernel(
             # q_global[:, None]: [Q_TILE_SIZE, 1]
             # k_global[None, :]: [1, K_TILE_SIZE]
             causal_mask = q_global[:, None] < k_global[None, :]  # [Q_TILE_SIZE, K_TILE_SIZE]
-            S_ij = tl.where(causal_mask, S_ij + (-1e-6), S_ij)
+            S_ij = tl.where(causal_mask, S_ij + (-1e6), S_ij)
 
         # Step 2: update running row maximum
         m_new = tl.maximum(m_i, tl.max(S_ij, axis=1))  # [Q_TILE_SIZE]
