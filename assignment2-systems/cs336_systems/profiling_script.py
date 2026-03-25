@@ -15,6 +15,9 @@ Usage:
 
     # Memory profiling (full training step)
     uv run python profiling_script.py --size 2.7B --context_length 128 --memory_profile
+
+    # Compile model
+    uv run python profiling_script.py --size small --compile --markdown
 """
 
 import argparse
@@ -90,6 +93,9 @@ def parse_args():
         action="store_true",
         help="Record memory history and dump a snapshot pickle for pytorch.org/memory_viz",
     )
+    parser.add_argument(
+        "--compile", action="store_true", help="Compile the model with torch.compile before benchmarking"
+    )
 
     return parser.parse_args()
 
@@ -157,6 +163,12 @@ def benchmark(args):
 
     # Build optimizer for full training step
     optimizer = None if args.forward_only else AdamW(model.parameters(), lr=1e-4)
+
+    # ── Optionally compile the model ─────────────────────────────────────────
+    if args.compile:
+        print("torch.compile: ENABLED — compiling model...")
+        model = torch.compile(model)
+        print("torch.compile: done")
 
     # ── Mixed precision context ───────────────────────────────────────────────
     if args.mixed_precision and device.type == "cuda":
@@ -251,6 +263,7 @@ def benchmark(args):
         "params (M)": total_params / 1e6,
         "forward_only": args.forward_only,
         "mixed_precision": args.mixed_precision,
+        "compiled": args.compile,
         "mean_ms": round(mean_ms, 2),
         "stdev_ms": round(stdev_ms, 2),
     }
