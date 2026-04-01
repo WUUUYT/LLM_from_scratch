@@ -169,6 +169,50 @@ def flash_fwd_kernel(
     tl.store(L_block_ptr, L_i)
 
 
+# ── Backward function (compiled for efficiency) ───────────────────────────────
+def _flash_backward(Q, K, V, Outputs, L, grad_O):
+    """
+    FlashAttention-2 backward pass using recomputation.
+    Follows Equations 13-19 from the FlashAttention-2 paper.
+
+    Inputs:
+        Q, K, V : [..., N_q/N_k, d]
+        O       : [..., N_q, d]     — forward output
+        L       : [..., N_q]        — logsumexp from forward
+        grad_O  : [..., N_q, d]     — upstream gradient dO
+
+    Returns:
+        dQ, dK, dV
+    """
+    scale = 1.0 / math.sqrt(Q.shape[-1])
+
+    # recompute S = QK^T / sqrt(d)
+    S = torch.matmul(Q, K.transpose(-2, -1)) * scale  # [..., N_q, N_k]
+
+    # recompute P_ij = exp(S_ij - L_i)
+    P = torch.exp(S - L.unsqueeze(-1))  # [..., N_q, N_k]
+
+    # dV = P^T dO
+    dV = torch.matmul(P.transpose(-2, -1), grad_O)  # [..., N_k, d]
+    # dP = dO V^T
+    dP = torch.matmul(grad_O, V.transpose(-2, -1))  # [..., N_q, N_k]
+    # D_i = rowsum(O ∘ dO)
+    D = (Outputs * grad_O).sum(dim=-1)  # [..., N_q]
+
+    # dS_ij = P_ij * (dP_ij - D_i)
+    dS = P * (dP - D.unsqueeze(-1))  # [..., N_q, N_k]
+
+    # dQ = dS K / sqrt(d)
+    dQ = torch.matmul(dS, K) * scale  # [..., N_q, d]
+    # dK = dS^T Q / sqrt(d)
+    dK = torch.matmul(dS.transpose(-2, -1), Q) * scale  # [..., N_k, d]
+
+    return dQ, dK, dV
+
+
+_flash_backward_compiled = torch.compile(_flash_backward)
+
+
 # ── Autograd Function ─────────────────────────────────────────────────────────
 class FlashAttentionTriton(Function):
     """
@@ -254,7 +298,9 @@ class FlashAttentionTriton(Function):
 
     @staticmethod
     def backward(ctx, grad_O):
-        raise NotImplementedError("FlashAttention-2 Triton backward not yet implemented.")
+        Q, K, V, Outputs, L = ctx.saved_tensors
+        dQ, dK, dV = _flash_backward_compiled(Q, K, V, Outputs, L, grad_O.contiguous())
+        return dQ, dK, dV, None
 
 
 # ── Convenience wrapper ───────────────────────────────────────────────────────
