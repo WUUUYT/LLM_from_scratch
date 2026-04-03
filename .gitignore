@@ -6,7 +6,11 @@ Transformer/
 *.pdf
 *.pt
 *.gz
+*.toml
+*.lock
 
+**/test_and_make_submission.sh
+.python-version
 
 ###### Assignment 1 ########
 assignment1-basics/outputs
@@ -20,10 +24,23 @@ assignment1-basics/wandb
 assignment1-basics/test.sh
 assignment1-basics/.claude
 
+###### Assignment 2 ########
+assignment2-systems/data
+assignment2-systems/tests
+
+###### Assignment 3 ########
+assignment3-scaling/data
+assignment3-scaling/tests
+
+
 ###### Assignment 4 ########
 assignment4-data/data
+assignment4-data/tests
 
 
+###### Assignment 5 ########
+assignment5-alignment/data
+assignment5-alignment/tests
 
 
 
