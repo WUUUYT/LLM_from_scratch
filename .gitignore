@@ -5,7 +5,7 @@
 Transformer/
 *.pdf
 *.pt
-
+*.gz
 
 
 ###### Assignment 1 ########
@@ -19,6 +19,15 @@ assignment1-basics/make_submission.sh
 assignment1-basics/wandb
 assignment1-basics/test.sh
 assignment1-basics/.claude
+
+###### Assignment 4 ########
+assignment4-data/data
+
+
+
+
+
+
 ### C++ ###
 # Prerequisites
 *.d
